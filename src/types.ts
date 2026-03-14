@@ -11,3 +11,17 @@ export interface Preset {
   effectName: string; // Aktuell aktiver Effekt-Name für API-Request
   subPresets: SubPreset[]; // Verfügbare Varianten
 }
+
+export interface QueueItem {
+  id: string;
+  presetId: string;
+  variantId?: string; // undefined = Hauptvariante
+  displayName: string; // Zur Anzeige in der Queue
+  effectName: string; // Für API-Request
+}
+
+export interface AppSettings {
+  queueInterval: number; // in Millisekunden
+  autoPlay: boolean;
+}
+

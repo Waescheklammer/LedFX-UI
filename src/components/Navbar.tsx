@@ -2,13 +2,21 @@ import React from 'react';
 import { AppBar, Toolbar, Typography, Button, Box } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import QueueMusicIcon from '@mui/icons-material/QueueMusic';
 
 interface NavbarProps {
   onAddEffect: () => void;
   onDeleteEffect: () => void;
+  onToggleQueue: () => void;
+  queueOpen: boolean;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onAddEffect, onDeleteEffect }) => {
+export const Navbar: React.FC<NavbarProps> = ({
+  onAddEffect,
+  onDeleteEffect,
+  onToggleQueue,
+  queueOpen
+}) => {
   return (
     <AppBar position="static">
       <Toolbar>
@@ -29,6 +37,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onAddEffect, onDeleteEffect }) =
             onClick={onDeleteEffect}
           >
             Effekt löschen
+          </Button>
+          <Button
+            color="inherit"
+            startIcon={<QueueMusicIcon />}
+            onClick={onToggleQueue}
+          >
+            {queueOpen ? 'Queue ausblenden' : 'Queue anzeigen'}
           </Button>
         </Box>
       </Toolbar>
