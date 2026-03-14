@@ -5,6 +5,7 @@
     <inspection_tool class="CanBePrimaryConstructorProperty" enabled="true" level="ERROR" enabled_by_default="true" />
     <inspection_tool class="ComplexRedundantLet" enabled="true" level="ERROR" enabled_by_default="true" />
     <inspection_tool class="ConstantConditionIf" enabled="true" level="ERROR" enabled_by_default="true" />
+    <inspection_tool class="Eslint" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="ExplicitThis" enabled="true" level="ERROR" enabled_by_default="true" />
     <inspection_tool class="KotlinDoubleNegation" enabled="true" level="ERROR" enabled_by_default="true" />
     <inspection_tool class="KotlinRedundantOverride" enabled="true" level="ERROR" enabled_by_default="true" />
