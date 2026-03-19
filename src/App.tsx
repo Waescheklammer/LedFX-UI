@@ -22,6 +22,32 @@ function App() {
     severity: 'success',
   });
 
+  // Globaler Handler für unbehandelte Promise Rejections
+  useEffect(() => {
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      console.warn('Unhandled Promise Rejection gefangen:', event.reason);
+      
+      // Verhindere die Standard-Fehlerbehandlung
+      event.preventDefault();
+      
+      // Optional: Toast für kritische Fehler
+      if (event.reason && typeof event.reason.message === 'string' && 
+          !event.reason.message.includes('Autopilot')) {
+        setSnackbar({ 
+          open: true, 
+          message: 'Ein unerwarteter Fehler ist aufgetreten', 
+          severity: 'error' 
+        });
+      }
+    };
+
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+    return () => {
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }, []);
+
   // Lade Presets aus localStorage
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY_PRESETS);
@@ -41,30 +67,66 @@ function App() {
 
   // Autopilot Status Polling (alle 10s, pausiert bei inaktivem Tab)
   useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+
     const fetchStatus = async () => {
+      // Nur wenn das Tab/Fenster sichtbar ist
       if (document.visibilityState !== 'visible') return;
 
       try {
         const status = await getAutopilotStatus();
         setAutopilotStatus(status);
       } catch (error) {
-        console.error('Fehler beim Autopilot-Status-Abruf:', error);
+        // Stiller Fehler - nur loggen, kein Toast/Alert für Polling-Fehler
+        console.warn('Autopilot Status Polling Fehler (wird ignoriert):', error);
+        
+        // Bei Netzwerkfehlern Status als unavailable setzen
+        setAutopilotStatus({ state: 'service_unavailable' });
       }
     };
 
-    // Initial fetch
-    fetchStatus();
+    // Initial fetch mit Delay für bessere Startup-Performance
+    const initialFetch = () => {
+      setTimeout(() => {
+        fetchStatus().catch(error => {
+          console.warn('Initial Autopilot Status Fetch Fehler:', error);
+          setAutopilotStatus({ state: 'service_unavailable' });
+        });
+      }, 1000); // 1 Sekunde warten nach App-Start
+    };
+
+    initialFetch();
 
     // Polling alle 10s
-    const interval = setInterval(fetchStatus, POLLING_INTERVAL_MS);
+    intervalId = setInterval(() => {
+      fetchStatus().catch(error => {
+        // Promise rejection explizit behandeln
+        console.warn('Autopilot Polling Fehler:', error);
+      });
+    }, POLLING_INTERVAL_MS);
 
     // Cleanup
-    return () => clearInterval(interval);
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
   }, []);
 
   // Toggle Autopilot
   const handleToggleAutopilot = async () => {
     const isRunning = autopilotStatus?.state === 'running';
+    const isUnavailable = autopilotStatus?.state === 'service_unavailable';
+    
+    if (isUnavailable) {
+      setSnackbar({ 
+        open: true, 
+        message: 'Autopilot Service ist nicht verfügbar. Überprüfe, ob der Service läuft.', 
+        severity: 'error' 
+      });
+      return;
+    }
+
     setAutopilotLoading(true);
 
     try {
@@ -77,12 +139,30 @@ function App() {
       }
 
       // Status sofort aktualisieren
-      const status = await getAutopilotStatus();
-      setAutopilotStatus(status);
+      try {
+        const status = await getAutopilotStatus();
+        setAutopilotStatus(status);
+      } catch (statusError) {
+        console.warn('Status Update nach Toggle fehlgeschlagen:', statusError);
+        // Status wird durch Polling aktualisiert, daher nicht kritisch
+      }
+
     } catch (error: any) {
-      const message = error.response?.data?.detail || error.message || 'Fehler beim Autopilot-Toggle';
+      let message = 'Unbekannter Fehler beim Autopilot-Toggle';
+      
+      if (typeof error?.message === 'string') {
+        message = error.message;
+      } else if (error?.response?.data?.detail) {
+        message = error.response.data.detail;
+      } else if (error?.response?.data?.message) {
+        message = error.response.data.message;
+      }
+
       setSnackbar({ open: true, message, severity: 'error' });
       console.error('Autopilot Toggle Fehler:', error);
+      
+      // Bei Fehlern Status als unavailable setzen
+      setAutopilotStatus({ state: 'service_unavailable' });
     } finally {
       setAutopilotLoading(false);
     }

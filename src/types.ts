@@ -17,12 +17,12 @@ export interface AppSettings {
 }
 
 export interface AutopilotStatus {
-  state: 'running' | 'idle';
-  current_phase: string | null;
-  last_switch: string | null;
-  frame_count: number;
-  switch_count: number;
-  uptime_s: number | null;
+  state: 'running' | 'idle' | 'service_unavailable';
+  current_phase?: string | null;
+  last_switch?: string | null;
+  frame_count?: number;
+  switch_count?: number;
+  uptime_s?: number | null;
 }
 
 

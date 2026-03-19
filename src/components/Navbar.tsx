@@ -20,6 +20,17 @@ export const Navbar: React.FC<NavbarProps> = ({
   onToggleAutopilot,
 }) => {
   const isRunning = autopilotStatus?.state === 'running';
+  const isUnavailable = autopilotStatus?.state === 'service_unavailable';
+
+  const getStatusText = () => {
+    if (isUnavailable) return 'Service nicht verfügbar';
+    return `Autopilot ${isRunning ? 'Aktiv' : 'Inaktiv'}`;
+  };
+
+  const getStatusColor = () => {
+    if (isUnavailable) return '#ff9800'; // Orange für Warnung
+    return isRunning ? '#4caf50' : 'rgba(255,255,255,0.7)';
+  };
 
   return (
     <AppBar position="static">
@@ -47,11 +58,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Typography
               variant="body2"
               sx={{
-                color: isRunning ? '#4caf50' : 'rgba(255,255,255,0.7)',
+                color: getStatusColor(),
                 fontWeight: isRunning ? 'bold' : 'normal'
               }}
             >
-              Autopilot {isRunning ? 'Aktiv' : 'Inaktiv'}
+              {getStatusText()}
             </Typography>
 
             {autopilotLoading ? (
@@ -60,7 +71,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Switch
                 checked={isRunning}
                 onChange={onToggleAutopilot}
-                disabled={autopilotLoading}
+                disabled={autopilotLoading || isUnavailable}
                 color="default"
               />
             )}
