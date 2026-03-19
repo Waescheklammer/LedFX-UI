@@ -12,16 +12,17 @@ export interface Preset {
   subPresets: SubPreset[]; // Verfügbare Varianten
 }
 
-export interface QueueItem {
-  id: string;
-  presetId: string;
-  variantId?: string; // undefined = Hauptvariante
-  displayName: string; // Zur Anzeige in der Queue
-  effectName: string; // Für API-Request
-}
-
 export interface AppSettings {
   queueInterval: number; // in Millisekunden
-  autoPlay: boolean;
 }
+
+export interface AutopilotStatus {
+  state: 'running' | 'idle';
+  current_phase: string | null;
+  last_switch: string | null;
+  frame_count: number;
+  switch_count: number;
+  uptime_s: number | null;
+}
+
 

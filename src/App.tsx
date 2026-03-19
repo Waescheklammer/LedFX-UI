@@ -1,34 +1,26 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Container, Grid, Box } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import { Container, Grid, Box, Snackbar, Alert } from '@mui/material';
 import { Navbar } from './components/Navbar';
 import { PresetCard } from './components/PresetCard';
 import { AddEffectDialog } from './components/AddEffectDialog';
 import { DeleteEffectDialog } from './components/DeleteEffectDialog';
-import { QueueSidebar } from './components/QueueSidebar';
-import { SettingsDialog } from './components/SettingsDialog';
-import { Preset, SubPreset, QueueItem, AppSettings } from './types';
-import { activateEffect } from './api/ledfxClient';
+import { Preset, SubPreset, AutopilotStatus } from './types';
+import { activateEffect, getAutopilotStatus, startAutopilot, stopAutopilot } from './api/ledfxClient';
+import { POLLING_INTERVAL_MS } from './config';
 
 const STORAGE_KEY_PRESETS = 'ledfx_presets';
-const STORAGE_KEY_QUEUE = 'ledfx_queue';
-const STORAGE_KEY_SETTINGS = 'ledfx_settings';
-
-const DEFAULT_SETTINGS: AppSettings = {
-  queueInterval: 10000, // 10 Sekunden
-  autoPlay: false,
-};
 
 function App() {
   const [presets, setPresets] = useState<Preset[]>([]);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [queue, setQueue] = useState<QueueItem[]>([]);
-  const [currentQueueIndex, setCurrentQueueIndex] = useState(0);
-  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
-  const [queueOpen, setQueueOpen] = useState(true);
-  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
-
-  const autoPlayTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [autopilotStatus, setAutopilotStatus] = useState<AutopilotStatus | null>(null);
+  const [autopilotLoading, setAutopilotLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
 
   // Lade Presets aus localStorage
   useEffect(() => {
@@ -42,83 +34,62 @@ function App() {
     }
   }, []);
 
-  // Lade Queue aus localStorage
-  useEffect(() => {
-    const storedQueue = localStorage.getItem(STORAGE_KEY_QUEUE);
-    if (storedQueue) {
-      try {
-        setQueue(JSON.parse(storedQueue));
-      } catch (error) {
-        console.error('Fehler beim Laden der Queue:', error);
-      }
-    }
-  }, []);
-
-  // Lade Settings aus localStorage
-  useEffect(() => {
-    const storedSettings = localStorage.getItem(STORAGE_KEY_SETTINGS);
-    if (storedSettings) {
-      try {
-        setSettings(JSON.parse(storedSettings));
-      } catch (error) {
-        console.error('Fehler beim Laden der Settings:', error);
-      }
-    }
-  }, []);
-
   // Speichere Presets in localStorage
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(presets));
   }, [presets]);
 
-  // Speichere Queue in localStorage
+  // Autopilot Status Polling (alle 10s, pausiert bei inaktivem Tab)
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_QUEUE, JSON.stringify(queue));
-  }, [queue]);
-
-  // Speichere Settings in localStorage
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings));
-  }, [settings]);
-
-  // Auto-Play Logic
-  useEffect(() => {
-    // Cleanup vorheriger Timer
-    if (autoPlayTimerRef.current) {
-      clearInterval(autoPlayTimerRef.current);
-      autoPlayTimerRef.current = null;
-    }
-
-    if (!settings.autoPlay || queue.length === 0) return;
-
-    // Starte Auto-Play Timer
-    autoPlayTimerRef.current = setInterval(async () => {
-      const nextIndex = (currentQueueIndex + 1) % queue.length;
-      const nextItem = queue[nextIndex];
+    const fetchStatus = async () => {
+      if (document.visibilityState !== 'visible') return;
 
       try {
-        await activateEffect(nextItem.effectName);
-        console.log(`Auto-Play: ${nextItem.displayName}`);
+        const status = await getAutopilotStatus();
+        setAutopilotStatus(status);
       } catch (error) {
-        console.error('Fehler beim Auto-Play:', error);
-      }
-
-      setCurrentQueueIndex(nextIndex);
-    }, settings.queueInterval);
-
-    return () => {
-      if (autoPlayTimerRef.current) {
-        clearInterval(autoPlayTimerRef.current);
+        console.error('Fehler beim Autopilot-Status-Abruf:', error);
       }
     };
-  }, [settings.autoPlay, settings.queueInterval, queue, currentQueueIndex]);
 
-  // Handler für manuelle Aktivierung - unterbricht Auto-Play
-  const handleManualActivation = () => {
-    if (settings.autoPlay) {
-      setSettings({ ...settings, autoPlay: false });
-      console.log('Auto-Play durch manuelle Aktivierung unterbrochen');
+    // Initial fetch
+    fetchStatus();
+
+    // Polling alle 10s
+    const interval = setInterval(fetchStatus, POLLING_INTERVAL_MS);
+
+    // Cleanup
+    return () => clearInterval(interval);
+  }, []);
+
+  // Toggle Autopilot
+  const handleToggleAutopilot = async () => {
+    const isRunning = autopilotStatus?.state === 'running';
+    setAutopilotLoading(true);
+
+    try {
+      if (isRunning) {
+        await stopAutopilot();
+        setSnackbar({ open: true, message: 'Autopilot gestoppt', severity: 'success' });
+      } else {
+        await startAutopilot();
+        setSnackbar({ open: true, message: 'Autopilot gestartet', severity: 'success' });
+      }
+
+      // Status sofort aktualisieren
+      const status = await getAutopilotStatus();
+      setAutopilotStatus(status);
+    } catch (error: any) {
+      const message = error.response?.data?.detail || error.message || 'Fehler beim Autopilot-Toggle';
+      setSnackbar({ open: true, message, severity: 'error' });
+      console.error('Autopilot Toggle Fehler:', error);
+    } finally {
+      setAutopilotLoading(false);
     }
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
   };
 
   const handleAddEffect = (
@@ -158,32 +129,39 @@ function App() {
     }
   };
 
-  const handleVariantChange = (presetId: string, variantId: string) => {
-    setPresets(
-      presets.map((preset) => {
-        if (preset.id === presetId) {
-          const selectedVariant = preset.subPresets.find((v) => v.id === variantId);
-          if (!selectedVariant) return preset;
+  const handleVariantChange = async (presetId: string, variantId: string) => {
+    const preset = presets.find((p) => p.id === presetId);
+    if (!preset) return;
 
+    const selectedVariant = preset.subPresets.find((v) => v.id === variantId);
+    if (!selectedVariant) return;
+
+    // Aktiviere den Effekt und stoppe Autopilot
+    await handleManualEffectActivation(selectedVariant.effectName);
+
+    // Update die Presets (Variante wird zur Hauptvariante)
+    setPresets(
+      presets.map((p) => {
+        if (p.id === presetId) {
           // Die aktuelle Variante wird zu einer SubPreset
           const currentAsSubPreset: SubPreset = {
             id: crypto.randomUUID(),
-            name: preset.name,
-            effectName: preset.effectName,
+            name: p.name,
+            effectName: p.effectName,
           };
 
           // Die ausgewählte Variante wird zur Hauptvariante
           return {
-            ...preset,
+            ...p,
             name: selectedVariant.name,
             effectName: selectedVariant.effectName,
             subPresets: [
               currentAsSubPreset,
-              ...preset.subPresets.filter((v) => v.id !== variantId),
+              ...p.subPresets.filter((v) => v.id !== variantId),
             ],
           };
         }
-        return preset;
+        return p;
       })
     );
   };
@@ -208,46 +186,28 @@ function App() {
     }
   };
 
-  const handleAddToQueue = (presetId: string, variantId?: string) => {
-    const preset = presets.find((p) => p.id === presetId);
-    if (!preset) return;
-
-    let displayName: string;
-    let effectName: string;
-
-    if (variantId) {
-      const variant = preset.subPresets.find((v) => v.id === variantId);
-      if (!variant) return;
-      displayName = `${preset.mainTitle} - ${variant.name}`;
-      effectName = variant.effectName;
-    } else {
-      displayName = `${preset.mainTitle} - ${preset.name}`;
-      effectName = preset.effectName;
+  // Handler für manuelle Effekt-Aktivierung - stoppt Autopilot falls aktiv
+  const handleManualEffectActivation = async (effectName: string) => {
+    // Stoppt Autopilot falls aktiv
+    if (autopilotStatus?.state === 'running') {
+      try {
+        await stopAutopilot();
+        const status = await getAutopilotStatus();
+        setAutopilotStatus(status);
+        setSnackbar({ open: true, message: 'Autopilot durch manuelle Aktivierung gestoppt', severity: 'info' });
+      } catch (error) {
+        console.error('Fehler beim Stoppen des Autopiloten:', error);
+      }
     }
 
-    const newItem: QueueItem = {
-      id: crypto.randomUUID(),
-      presetId,
-      variantId,
-      displayName,
-      effectName,
-    };
-
-    setQueue([...queue, newItem]);
-  };
-
-  const handleRemoveFromQueue = (itemId: string) => {
-    const newQueue = queue.filter((item) => item.id !== itemId);
-    setQueue(newQueue);
-
-    // Passe Index an wenn nötig
-    if (currentQueueIndex >= newQueue.length && newQueue.length > 0) {
-      setCurrentQueueIndex(0);
+    // Aktiviere den Effekt
+    try {
+      await activateEffect(effectName);
+      console.log(`Aktiviere Preset: ${effectName}`);
+    } catch (error) {
+      console.error('Fehler beim Aktivieren des Presets:', error);
+      setSnackbar({ open: true, message: 'Fehler beim Aktivieren des Effekts', severity: 'error' });
     }
-  };
-
-  const handleToggleAutoPlay = () => {
-    setSettings({ ...settings, autoPlay: !settings.autoPlay });
   };
 
   return (
@@ -255,8 +215,9 @@ function App() {
       <Navbar
         onAddEffect={() => setAddDialogOpen(true)}
         onDeleteEffect={() => setDeleteDialogOpen(true)}
-        onToggleQueue={() => setQueueOpen(!queueOpen)}
-        queueOpen={queueOpen}
+        autopilotStatus={autopilotStatus}
+        autopilotLoading={autopilotLoading}
+        onToggleAutopilot={handleToggleAutopilot}
       />
 
       <Container
@@ -265,8 +226,6 @@ function App() {
           mt: 4,
           mb: 4,
           flexGrow: 1,
-          mr: queueOpen ? '320px' : 0,
-          transition: 'margin-right 0.3s',
         }}
       >
         <Grid container spacing={3} columns={4}>
@@ -275,24 +234,12 @@ function App() {
               <PresetCard
                 preset={preset}
                 onVariantChange={handleVariantChange}
-                onAddToQueue={handleAddToQueue}
-                onManualActivation={handleManualActivation}
+                onManualEffectActivation={handleManualEffectActivation}
               />
             </Grid>
           ))}
         </Grid>
       </Container>
-
-      <QueueSidebar
-        open={queueOpen}
-        queue={queue}
-        currentIndex={currentQueueIndex}
-        autoPlay={settings.autoPlay}
-        onToggleAutoPlay={handleToggleAutoPlay}
-        onRemoveFromQueue={handleRemoveFromQueue}
-        onOpenSettings={() => setSettingsDialogOpen(true)}
-        onClose={() => setQueueOpen(false)}
-      />
 
       <AddEffectDialog
         open={addDialogOpen}
@@ -308,12 +255,16 @@ function App() {
         presets={presets}
       />
 
-      <SettingsDialog
-        open={settingsDialogOpen}
-        onClose={() => setSettingsDialogOpen(false)}
-        settings={settings}
-        onSave={setSettings}
-      />
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

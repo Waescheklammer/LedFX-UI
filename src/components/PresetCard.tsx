@@ -12,39 +12,25 @@ import {
   ListItemButton,
   ListItemText,
   Box,
-  IconButton,
-  Menu,
-  MenuItem,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import AddToQueueIcon from '@mui/icons-material/AddToQueue';
 import { Preset } from '../types';
-import { activateEffect } from '../api/ledfxClient';
 
 interface PresetCardProps {
   preset: Preset;
   onVariantChange: (presetId: string, variantId: string) => void;
-  onAddToQueue: (presetId: string, variantId?: string) => void;
-  onManualActivation: () => void;
+  onManualEffectActivation: (effectName: string) => void;
 }
 
 export const PresetCard: React.FC<PresetCardProps> = ({
   preset,
   onVariantChange,
-  onAddToQueue,
-  onManualActivation
+  onManualEffectActivation,
 }) => {
   const [expanded, setExpanded] = useState(false);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   const handleCardClick = async () => {
-    try {
-      await activateEffect(preset.effectName);
-      console.log(`Aktiviere Preset: ${preset.effectName}`);
-      onManualActivation(); // Auto-Play unterbrechen
-    } catch (error) {
-      console.error('Fehler beim Aktivieren des Presets:', error);
-    }
+    onManualEffectActivation(preset.effectName);
   };
 
   const handleVariantClick = async (
@@ -53,23 +39,9 @@ export const PresetCard: React.FC<PresetCardProps> = ({
   ) => {
     event.stopPropagation();
     onVariantChange(preset.id, variantId);
-    onManualActivation(); // Auto-Play unterbrechen
     setExpanded(false);
   };
 
-  const handleQueueMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    event.stopPropagation();
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleQueueMenuClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleAddToQueue = (variantId?: string) => {
-    onAddToQueue(preset.id, variantId);
-    handleQueueMenuClose();
-  };
 
   return (
     <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -89,31 +61,6 @@ export const PresetCard: React.FC<PresetCardProps> = ({
         </CardContent>
       </CardActionArea>
 
-      {/* Queue-Button */}
-      <Box sx={{ px: 2, pb: 1, display: 'flex', justifyContent: 'center', borderTop: 1, borderColor: 'divider' }}>
-        <IconButton
-          size="small"
-          onClick={handleQueueMenuOpen}
-          color="primary"
-        >
-          <AddToQueueIcon />
-        </IconButton>
-      </Box>
-
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleQueueMenuClose}
-      >
-        <MenuItem onClick={() => handleAddToQueue()}>
-          {preset.name} (Aktuell)
-        </MenuItem>
-        {preset.subPresets.map((variant) => (
-          <MenuItem key={variant.id} onClick={() => handleAddToQueue(variant.id)}>
-            {variant.name}
-          </MenuItem>
-        ))}
-      </Menu>
 
       {preset.subPresets.length > 0 && (
         <Box sx={{ borderTop: 1, borderColor: 'divider' }}>
