@@ -5,7 +5,7 @@ import { PresetCard } from './components/PresetCard';
 import { AddEffectDialog } from './components/AddEffectDialog';
 import { DeleteEffectDialog } from './components/DeleteEffectDialog';
 import { Preset, SubPreset, AutopilotStatus } from './types';
-import { activateEffect, getAutopilotStatus, startAutopilot, stopAutopilot } from './api/ledfxClient';
+import { activateEffect, getAutopilotStatus, startAutopilot, stopAutopilot } from './api/ledfxClient.ts';
 import { POLLING_INTERVAL_MS } from './config';
 
 const STORAGE_KEY_PRESETS = 'ledfx_presets';
