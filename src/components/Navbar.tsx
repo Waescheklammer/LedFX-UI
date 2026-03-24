@@ -2,11 +2,13 @@ import React from 'react';
 import { AppBar, Toolbar, Typography, Button, Box, Switch, CircularProgress, Chip } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import FileUploadIcon from '@mui/icons-material/FileUpload';
 import { AutopilotStatus } from '../types';
 
 interface NavbarProps {
   onAddEffect: () => void;
   onDeleteEffect: () => void;
+  onImport: () => void;
   autopilotStatus: AutopilotStatus | null;
   autopilotLoading: boolean;
   onToggleAutopilot: () => void;
@@ -15,6 +17,7 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   onAddEffect,
   onDeleteEffect,
+  onImport,
   autopilotStatus,
   autopilotLoading,
   onToggleAutopilot,
@@ -39,12 +42,19 @@ export const Navbar: React.FC<NavbarProps> = ({
           LedFx Presets
         </Typography>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <Button
+            <Button
+                color="inherit"
+                startIcon={<FileUploadIcon />}
+                onClick={onImport}
+            >
+                Import
+            </Button>
+            <Button
             color="inherit"
             startIcon={<AddIcon />}
             onClick={onAddEffect}
           >
-            Neuer Effekt
+              Neuer Effekt
           </Button>
           <Button
             color="inherit"

@@ -4,6 +4,7 @@ import { Navbar } from './components/Navbar';
 import { PresetCard } from './components/PresetCard';
 import { AddEffectDialog } from './components/AddEffectDialog';
 import { DeleteEffectDialog } from './components/DeleteEffectDialog';
+import { ImportConfigDialog } from './components/ImportConfigDialog';
 import { Preset, SubPreset, AutopilotStatus } from './types';
 import { activateEffect, getAutopilotStatus, startAutopilot, stopAutopilot } from './api/ledfxClient.ts';
 import { POLLING_INTERVAL_MS } from './config';
@@ -14,6 +15,7 @@ function App() {
   const [presets, setPresets] = useState<Preset[]>([]);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [autopilotStatus, setAutopilotStatus] = useState<AutopilotStatus | null>(null);
   const [autopilotLoading, setAutopilotLoading] = useState(false);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' }>({
@@ -266,6 +268,15 @@ function App() {
     }
   };
 
+  const handleImportScenes = (importedPresets: Preset[]) => {
+    setPresets([...presets, ...importedPresets]);
+    setSnackbar({
+      open: true,
+      message: `${importedPresets.length} Effekt(e) erfolgreich importiert`,
+      severity: 'success',
+    });
+  };
+
   // Handler für manuelle Effekt-Aktivierung - stoppt Autopilot falls aktiv
   const handleManualEffectActivation = async (effectName: string) => {
     // Stoppt Autopilot falls aktiv
@@ -295,6 +306,7 @@ function App() {
       <Navbar
         onAddEffect={() => setAddDialogOpen(true)}
         onDeleteEffect={() => setDeleteDialogOpen(true)}
+        onImport={() => setImportDialogOpen(true)}
         autopilotStatus={autopilotStatus}
         autopilotLoading={autopilotLoading}
         onToggleAutopilot={handleToggleAutopilot}
@@ -333,6 +345,13 @@ function App() {
         onClose={() => setDeleteDialogOpen(false)}
         onDelete={handleDeleteEffect}
         presets={presets}
+      />
+
+      <ImportConfigDialog
+        open={importDialogOpen}
+        onClose={() => setImportDialogOpen(false)}
+        onImport={handleImportScenes}
+        existingPresets={presets}
       />
 
       <Snackbar
