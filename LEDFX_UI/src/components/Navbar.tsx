@@ -2,7 +2,7 @@ import React from 'react';
 import { AppBar, Toolbar, Typography, Button, Box, Switch, CircularProgress, Chip } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
-import FileUploadIcon from '@mui/icons-material/FileUpload';
+import DownloadIcon from '@mui/icons-material/Download';
 import { AutopilotStatus } from '../types';
 
 interface NavbarProps {
@@ -44,7 +44,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
             <Button
                 color="inherit"
-                startIcon={<FileUploadIcon />}
+                startIcon={<DownloadIcon />}
                 onClick={onImport}
             >
                 Import
@@ -100,5 +100,3 @@ export const Navbar: React.FC<NavbarProps> = ({
     </AppBar>
   );
 };
-
-

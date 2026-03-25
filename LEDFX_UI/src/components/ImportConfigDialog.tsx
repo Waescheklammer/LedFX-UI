@@ -19,9 +19,11 @@ import {
   Stepper,
   Step,
   StepLabel,
+  CircularProgress,
 } from '@mui/material';
-import FileUploadIcon from '@mui/icons-material/FileUpload';
+import DownloadIcon from '@mui/icons-material/Download';
 import { Preset, SubPreset } from '../types';
+import { getScenes } from '../api/ledfxClient';
 
 interface ImportConfigDialogProps {
   open: boolean;
@@ -31,7 +33,7 @@ interface ImportConfigDialogProps {
 }
 
 interface ImportedScene {
-  key: string; // Scene-Key aus config.json
+  key: string; // Scene-Key aus LedFX API
   displayName: string; // name-Property aus Scene
   isDuplicate: boolean; // Bereits vorhanden?
   parentKey: string; // Zuordnung zu anderem Scene-Key (leer = eigener Effekt)
@@ -44,68 +46,49 @@ export const ImportConfigDialog: React.FC<ImportConfigDialogProps> = ({
   existingPresets,
 }) => {
   const [activeStep, setActiveStep] = useState(0);
-  const [file, setFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
   const [scenes, setScenes] = useState<ImportedScene[]>([]);
   const [error, setError] = useState<string>('');
 
-  const steps = ['Datei hochladen', 'Gruppierung festlegen'];
+  const steps = ['Scenes laden', 'Gruppierung festlegen'];
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = event.target.files?.[0];
-    if (!selectedFile) return;
-
-    setFile(selectedFile);
+  const handleLoadScenes = async () => {
+    setLoading(true);
     setError('');
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const content = e.target?.result as string;
-        const config = JSON.parse(content);
+    try {
+      const scenesData = await getScenes();
 
-        // Validierung: Prüfe ob scenes-Key existiert
-        if (!config.scenes || typeof config.scenes !== 'object') {
-          setError('Ungültige config.json: "scenes"-Objekt nicht gefunden');
-          setScenes([]);
-          return;
-        }
+      // Alle existierenden effectNames sammeln (für Duplikat-Erkennung)
+      const existingEffectNames = new Set<string>();
+      existingPresets.forEach((preset) => {
+        existingEffectNames.add(preset.effectName);
+        preset.subPresets.forEach((sub) => existingEffectNames.add(sub.effectName));
+      });
 
-        // Alle existierenden effectNames sammeln (für Duplikat-Erkennung)
-        const existingEffectNames = new Set<string>();
-        existingPresets.forEach((preset) => {
-          existingEffectNames.add(preset.effectName);
-          preset.subPresets.forEach((sub) => existingEffectNames.add(sub.effectName));
-        });
+      // Scene-Keys extrahieren und zu ImportedScene konvertieren
+      const sceneKeys = Object.keys(scenesData);
+      const importedScenes: ImportedScene[] = sceneKeys.map((key) => ({
+        key,
+        displayName: scenesData[key]?.name || key,
+        isDuplicate: existingEffectNames.has(key),
+        parentKey: '', // Default: keine Zuordnung
+      }));
 
-        // Scene-Keys extrahieren und zu ImportedScene konvertieren
-        const sceneKeys = Object.keys(config.scenes);
-        const importedScenes: ImportedScene[] = sceneKeys.map((key) => ({
-          key,
-          displayName: config.scenes[key]?.name || key,
-          isDuplicate: existingEffectNames.has(key),
-          parentKey: '', // Default: keine Zuordnung
-        }));
+      setScenes(importedScenes);
 
-        setScenes(importedScenes);
-
-        if (importedScenes.length === 0) {
-          setError('Keine Scenes in der config.json gefunden');
-        } else if (importedScenes.every((s) => s.isDuplicate)) {
-          setError('Alle Scenes existieren bereits (Duplikate werden übersprungen)');
-        }
-      } catch (err) {
-        setError('Fehler beim Parsen der JSON-Datei: Ungültiges Format');
-        setScenes([]);
-        console.error('JSON Parse Error:', err);
+      if (importedScenes.length === 0) {
+        setError('Keine Scenes von LedFX gefunden');
+      } else if (importedScenes.every((s) => s.isDuplicate)) {
+        setError('Alle Scenes existieren bereits (Duplikate werden übersprungen)');
       }
-    };
-
-    reader.onerror = () => {
-      setError('Fehler beim Lesen der Datei');
+    } catch (err: any) {
+      setError('Fehler beim Laden der Scenes von LedFX: ' + (err.message || 'Unbekannter Fehler'));
       setScenes([]);
-    };
-
-    reader.readAsText(selectedFile);
+      console.error('Scene Load Error:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleNext = () => {
@@ -178,7 +161,7 @@ export const ImportConfigDialog: React.FC<ImportConfigDialogProps> = ({
 
   const handleReset = () => {
     setActiveStep(0);
-    setFile(null);
+    setLoading(false);
     setScenes([]);
     setError('');
     onClose();
@@ -213,7 +196,7 @@ export const ImportConfigDialog: React.FC<ImportConfigDialogProps> = ({
   return (
     <Dialog open={open} onClose={handleReset} maxWidth="md" fullWidth>
       <DialogTitle>
-        Config.json importieren
+        Scenes importieren
         <Stepper activeStep={activeStep} sx={{ mt: 2 }}>
           {steps.map((label) => (
             <Step key={label}>
@@ -227,32 +210,19 @@ export const ImportConfigDialog: React.FC<ImportConfigDialogProps> = ({
         {activeStep === 0 && (
           <Box>
             <Alert severity="info" sx={{ mb: 3 }}>
-              Lade eine config.json-Datei hoch. Alle Scenes werden als neue
-              Effekte importiert. Im nächsten Schritt kannst du Gruppierungen
-              festlegen.
+              Lade alle Scenes direkt von LedFX. Im nächsten Schritt kannst du Gruppierungen festlegen.
             </Alert>
 
             <Button
               variant="contained"
-              component="label"
-              startIcon={<FileUploadIcon />}
+              startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <DownloadIcon />}
               fullWidth
               sx={{ mb: 2 }}
+              onClick={handleLoadScenes}
+              disabled={loading}
             >
-              Datei auswählen
-              <input
-                type="file"
-                accept=".json"
-                hidden
-                onChange={handleFileChange}
-              />
+              {loading ? 'Lade Scenes...' : 'Scenes von LedFX laden'}
             </Button>
-
-            {file && (
-              <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>
-                Datei: {file.name}
-              </Typography>
-            )}
 
             {error && (
               <Alert severity="error" sx={{ mb: 2 }}>
@@ -378,7 +348,4 @@ export const ImportConfigDialog: React.FC<ImportConfigDialogProps> = ({
     </Dialog>
   );
 };
-
-
-
 

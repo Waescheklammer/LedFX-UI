@@ -30,6 +30,16 @@ export async function activateEffect(sceneName: string) {
   }
 }
 
+export async function getScenes(): Promise<Record<string, any>> {
+  try {
+    const response = await axios.get(`${API_BASE}/scenes`);
+    // LedFX gibt { "scenes": { "key": {...}, ... } } oder direkt das Objekt zurück
+    return response.data.scenes ?? response.data;
+  } catch (error) {
+    throw error;
+  }
+}
+
 // Autopilot API-Funktionen
 export async function getAutopilotStatus() {
   try {
@@ -57,4 +67,3 @@ export async function stopAutopilot() {
     throw error;
   }
 }
-
