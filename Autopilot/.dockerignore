@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+.git/
+.idea/
+.venv/
+*.egg-info/
+dist/
+node_modules/
+.vite/
+LEDFX_UI/
+

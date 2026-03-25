@@ -1,0 +1,53 @@
+# ── docker-compose.yml ────────────────────────────────────
+# Startet das Autopilot-Backend als Docker-Container.
+# Das Frontend (React/Vite) kann lokal laufen und weiterhin
+# auf http://localhost:8080 zugreifen.
+#
+# Verwendung:
+#   docker compose up --build          (Vordergrund)
+#   docker compose up --build -d       (Hintergrund)
+#   docker compose down                (Stoppen)
+#   docker compose logs -f autopilot   (Logs verfolgen)
+#
+# Audio-Hinweis:
+#   Da Docker keinen direkten Zugriff auf Audio-Hardware hat,
+#   gibt es folgende Optionen:
+#
+#   Option A (Linux): Audio-Devices durchreichen
+#     Uncomment die "devices" und "volumes" Zeilen unten.
+#
+#   Option B (macOS): PulseAudio über TCP
+#     → brew install pulseaudio
+#     → pulseaudio --load="module-native-protocol-tcp auth-anonymous=1" --start
+#     → PULSE_SERVER=host.docker.internal ist bereits gesetzt
+#
+#   Option C: Audio-Device nach Start per API konfigurieren
+#     → POST http://localhost:8080/config  {"data": {"audio": {"source": "device_index: X"}}}
+#     → GET  http://localhost:8080/devices  (verfügbare Geräte im Container)
+# ──────────────────────────────────────────────────────────
+
+services:
+  autopilot:
+    build:
+      context: ./Autopilot
+      dockerfile: Dockerfile
+    container_name: autopilot-backend
+    ports:
+      - "8080:8080"
+    extra_hosts:
+      # Damit der Container den Host erreicht (für LedFX auf localhost:8888)
+      - "host.docker.internal:host-gateway"
+    environment:
+      # PulseAudio über TCP (macOS: brew install pulseaudio, dann starten)
+      - PULSE_SERVER=host.docker.internal
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; r=requests.get('http://localhost:8080/status'); assert r.status_code==200"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    # ── Linux: Audio-Devices direkt durchreichen (uncomment bei Bedarf) ──
+    # devices:
+    #   - /dev/snd:/dev/snd
+    # volumes:
+    #   - /run/user/1000/pulse:/run/user/1000/pulse
