@@ -5,6 +5,7 @@ import { PresetCard } from './components/PresetCard';
 import { AddEffectDialog } from './components/AddEffectDialog';
 import { DeleteEffectDialog } from './components/DeleteEffectDialog';
 import { ImportConfigDialog } from './components/ImportConfigDialog';
+import { AutopilotLogSidebar } from './components/AutopilotLogSidebar';
 import { Preset, SubPreset, AutopilotStatus } from './types';
 import { activateEffect, getAutopilotStatus, startAutopilot, stopAutopilot } from './api/ledfxClient.ts';
 import { POLLING_INTERVAL_MS } from './config';
@@ -364,6 +365,8 @@ function App() {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      <AutopilotLogSidebar />
     </Box>
   );
 }

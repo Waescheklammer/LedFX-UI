@@ -12,11 +12,9 @@ export async function getLedFxStatus() {
   }
 }
 
-export async function activateEffect(effectName: string) {
+export async function activateEffect(sceneName: string) {
   try {
-    const response = await axios.post(`${API_BASE}/effects`, {
-      effect: effectName,
-    });
+    const response = await axios.put(`${API_BASE}/scenes/${sceneName}/activate`);
     return response.data;
   } catch (error) {
     throw error;
@@ -26,53 +24,27 @@ export async function activateEffect(effectName: string) {
 // Autopilot API-Funktionen
 export async function getAutopilotStatus() {
   try {
-    const response = await axios.get(`${AUTOPILOT_BASE_URL}/status`, {
-      timeout: 5000, // 5 Sekunden Timeout
-    });
+    const response = await axios.get(`${AUTOPILOT_BASE_URL}/status`);
     return response.data;
   } catch (error) {
-    // Behandle spezielle Fehlertypen
-    if (axios.isAxiosError(error)) {
-      if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
-        console.warn('Autopilot Service nicht verfügbar');
-        return { state: 'service_unavailable' };
-      }
-    }
-    console.error('Autopilot Status Fehler:', error);
     throw error;
   }
 }
 
 export async function startAutopilot() {
   try {
-    const response = await axios.post(`${AUTOPILOT_BASE_URL}/start`, {}, {
-      timeout: 10000, // 10 Sekunden Timeout
-    });
+    const response = await axios.post(`${AUTOPILOT_BASE_URL}/start`);
     return response.data;
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
-        throw new Error('Autopilot Service ist nicht verfügbar');
-      }
-    }
-    console.error('Autopilot Start Fehler:', error);
     throw error;
   }
 }
 
 export async function stopAutopilot() {
   try {
-    const response = await axios.post(`${AUTOPILOT_BASE_URL}/stop`, {}, {
-      timeout: 10000, // 10 Sekunden Timeout  
-    });
+    const response = await axios.post(`${AUTOPILOT_BASE_URL}/stop`);
     return response.data;
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
-        throw new Error('Autopilot Service ist nicht verfügbar');
-      }
-    }
-    console.error('Autopilot Stop Fehler:', error);
     throw error;
   }
 }
