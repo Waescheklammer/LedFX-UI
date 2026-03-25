@@ -1,0 +1,57 @@
+{
+  "model_dir": "C:/Projekte/TEST_1/models",
+
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8080
+  },
+
+  "audio": {
+    "source": "device_index: 27",
+    "wasapi_loopback": true,
+	"normalize": true,
+	"gain": 1.0
+  },
+
+  "smoothing": {
+    "vote_window": 11,
+    "cooldown_frames": 20,
+    "confidence_min": 0.55
+  },
+
+  "ledfx": {
+    "base_url": "http://localhost:8888",
+
+    "phases": {
+      "silence": {
+        "scenes": [
+          "SOLID SALMON"
+        ]
+      },
+      "build_up": {
+        "scenes": [
+          "Snake von Vorn",
+		  "Snake von Hinten",
+		  "NOISE TRANCE RED",
+		  "NOISE TRANCE AIRWAVE",
+		  "YELLOW BARS VORN",
+		  "Putzlicht"
+        ]
+      },
+      "hard_bass": {
+        "scenes": [
+          "FLAME RED",
+		  "Strobo Weiß",
+		  "BAR SMOOTH BOUNCE",
+		  "LIGHTNING Rot",
+		  "POWER RED WHITE",
+		  "TRANCE LILA GRÜN BARS",
+		  "TRANCE PLASMA CONTRAST",
+		  "TRANCE SMOOTH BOUNCE CONTRAST",
+		  "LIGHTNING AIRWAVE & RED",
+		  "Lightning Rot - Lila"
+        ]
+      }
+    }
+  }
+}
