@@ -14,7 +14,10 @@ export async function getLedFxStatus() {
 
 export async function activateEffect(sceneName: string) {
   try {
-    const response = await axios.put(`${API_BASE}/scenes/${sceneName}/activate`);
+    const response = await axios.put(`${API_BASE}/scenes`, {
+      id: sceneName,
+      action: 'activate'
+    });
     return response.data;
   } catch (error) {
     throw error;
