@@ -201,7 +201,7 @@ def _ledfx_worker():
         job = _ledfx_queue.get()
         if job is None:  # Shutdown-Signal
             break
-        base_url, scene_id, phase = job
+        base_url, scene_id, phase, state_ref = job
         try:
             r = session.put(
                 f"{base_url}/api/scenes",
@@ -210,6 +210,9 @@ def _ledfx_worker():
             )
             if r.status_code in (200, 201):
                 print(f"  [LedFX] ✓ scene aktiviert → phase={phase}  id={scene_id}")
+                # Scene-ID im State speichern nach erfolgreicher Aktivierung
+                with state_ref.lock:
+                    state_ref.current_scene = scene_id
             else:
                 print(f"  [LedFX] {r.status_code}: {r.text[:120]}")
         except Exception as e:
@@ -222,7 +225,7 @@ _ledfx_worker_thread = threading.Thread(target=_ledfx_worker, daemon=True)
 _ledfx_worker_thread.start()
 
 
-def ledfx_set_phase(phase: str, cfg: dict):
+def ledfx_set_phase(phase: str, cfg: dict, state):
     base_url  = cfg["ledfx"]["base_url"].rstrip("/")
     phase_cfg = cfg["ledfx"]["phases"].get(phase)
 
@@ -239,7 +242,7 @@ def ledfx_set_phase(phase: str, cfg: dict):
     scene_id = random.choice(scenes)
 
     # Nur in Queue einreihen – Worker feuert sofort, kein Thread-Start-Overhead
-    _ledfx_queue.put((base_url, scene_id, phase))
+    _ledfx_queue.put((base_url, scene_id, phase, state))
 
 
 # ─────────────────────────────────────────────
@@ -250,6 +253,7 @@ class AutopilotState:
         self.lock          = threading.Lock()
         self.running       = False
         self.current_phase = None
+        self.current_scene = None  # Zuletzt aktivierte Scene-ID
         self.last_switch   = None
         self.frame_count   = 0
         self.switch_count  = 0
@@ -262,6 +266,7 @@ class AutopilotState:
             return {
                 "state":         "running" if self.running else "idle",
                 "current_phase": self.current_phase,
+                "current_scene": self.current_scene,  # Scene-ID mit zurückgeben
                 "last_switch":   self.last_switch,
                 "frame_count":   self.frame_count,
                 "switch_count":  self.switch_count,
@@ -396,7 +401,7 @@ def inference_loop(cfg: dict, model, scaler, state: AutopilotState):
                     print(f"  [{ts}] → {winner:<12} conf:{confidence:.0%}  "
                           f"rms:{feats[0]:.3f}  bass_ratio:{feats[4]:.2f}")
 
-                    ledfx_set_phase(winner, cfg)
+                    ledfx_set_phase(winner, cfg, state)
 
                     with state.lock:
                         state.current_phase = winner
@@ -409,6 +414,7 @@ def inference_loop(cfg: dict, model, scaler, state: AutopilotState):
         with state.lock:
             state.running       = False
             state.current_phase = None
+            state.current_scene = None
             state.started_at    = None
         print("[Autopilot] Gestoppt.")
 
@@ -460,6 +466,7 @@ def stop_autopilot():
     with STATE.lock:
         STATE.running       = False
         STATE.current_phase = None
+        STATE.current_scene = None
         STATE.started_at    = None
     return {"status": "stopped"}
 
@@ -531,11 +538,42 @@ def main():
     for phase, pcfg in CFG["ledfx"]["phases"].items():
         scenes = pcfg.get("scenes", [])
         print(f"    {phase:<12} → {len(scenes)} scene(s): {scenes}")
+
+    # Gruppiere Devices nach Typ
     print("\n  Verfügbare Input-Devices:")
+
+    wasapi_devices = []
+    other_devices = []
+
     for i, d in enumerate(sd.query_devices()):
         if d["max_input_channels"] > 0:
-            tag = "  ◀ USB" if "usb" in d["name"].lower() else ""
-            print(f"    [{i}] {d['name']}{tag}")
+            # Prüfe ob WASAPI
+            hostapi_info = sd.query_hostapis(d["hostapi"])
+            is_wasapi = "WASAPI" in hostapi_info["name"]
+            is_usb = "usb" in d["name"].lower()
+
+            device_info = {
+                "index": i,
+                "name": d["name"],
+                "is_usb": is_usb
+            }
+
+            if is_wasapi:
+                wasapi_devices.append(device_info)
+            else:
+                other_devices.append(device_info)
+
+    # Ausgabe: Zuerst andere Devices
+    for dev in other_devices:
+        tag = "  ◀ USB" if dev["is_usb"] else ""
+        print(f"    [{dev['index']}] {dev['name']}{tag}")
+
+    # Dann WASAPI-Devices abgetrennt
+    if wasapi_devices:
+        print("\n  WASAPI-Devices (Loopback-fähig):")
+        for dev in wasapi_devices:
+            tag = "  ◀ USB" if dev["is_usb"] else ""
+            print(f"    [{dev['index']}] {dev['name']}{tag}")
 
     host = CFG["server"]["host"]
     port = CFG["server"]["port"]
