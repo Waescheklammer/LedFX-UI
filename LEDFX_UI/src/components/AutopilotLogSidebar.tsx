@@ -8,6 +8,7 @@ interface LogEntry {
   id: string;
   timestamp: Date;
   phase: string;
+  scene?: string;  // Neu: Aktivierte Scene
 }
 
 interface AutopilotLogSidebarProps {
@@ -30,16 +31,26 @@ export const AutopilotLogSidebar: React.FC<AutopilotLogSidebarProps> = ({ isRunn
       try {
         const status = await getAutopilotStatus();
         
-        if (status.phase) {
+        // Nur neuen Log erstellen wenn Phase UND Scene vorhanden sind
+        const phase = status.current_phase || status.phase;
+        const scene = status.current_scene;
+        
+        if (phase) {
           setLogs(prevLogs => {
+            // Prüfe ob letzter Log identisch ist (verhindert Duplikate)
+            const lastLog = prevLogs[0];
+            if (lastLog && lastLog.phase === phase && lastLog.scene === scene) {
+              return prevLogs;  // Keine Änderung
+            }
+
             const newLog: LogEntry = {
               id: crypto.randomUUID(),
               timestamp: new Date(),
-              phase: status.phase,
+              phase: phase,
+              scene: scene || undefined,
             };
             
-            const updatedLogs = [newLog, ...prevLogs].slice(0, MAX_LOGS);
-            return updatedLogs;
+            return [newLog, ...prevLogs].slice(0, MAX_LOGS);
           });
         }
       } catch (error) {
@@ -62,6 +73,14 @@ export const AutopilotLogSidebar: React.FC<AutopilotLogSidebarProps> = ({ isRunn
       minute: '2-digit', 
       second: '2-digit' 
     });
+  };
+
+  const getPhaseColor = (phase: string): string => {
+    const phaseLower = phase.toLowerCase();
+    if (phaseLower.includes('silence')) return '#9e9e9e';  // Grau
+    if (phaseLower.includes('build') || phaseLower.includes('buildup')) return '#ff9800';  // Orange
+    if (phaseLower.includes('bass') || phaseLower.includes('hard')) return '#f44336';  // Rot
+    return '#2196f3';  // Blau (default)
   };
 
   return (
@@ -118,15 +137,23 @@ export const AutopilotLogSidebar: React.FC<AutopilotLogSidebarProps> = ({ isRunn
                     borderRadius: 1,
                     border: '1px solid',
                     borderColor: 'divider',
+                    borderLeft: `4px solid ${getPhaseColor(log.phase)}`,
                   }}
                 >
                   <ListItemText
-                    primary={log.phase}
+                    primary={
+                      <Box>
+                        <Typography variant="body2" fontWeight={600} sx={{ color: getPhaseColor(log.phase) }}>
+                          {log.phase}
+                        </Typography>
+                        {log.scene && (
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                            → {log.scene}
+                          </Typography>
+                        )}
+                      </Box>
+                    }
                     secondary={formatTime(log.timestamp)}
-                    primaryTypographyProps={{
-                      variant: 'body2',
-                      fontWeight: 500,
-                    }}
                     secondaryTypographyProps={{
                       variant: 'caption',
                     }}
@@ -177,4 +204,3 @@ export const AutopilotLogSidebar: React.FC<AutopilotLogSidebarProps> = ({ isRunn
     </>
   );
 };
-

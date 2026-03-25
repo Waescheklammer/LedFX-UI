@@ -20,9 +20,9 @@ export interface AutopilotStatus {
   state: 'running' | 'idle' | 'service_unavailable';
   phase?: string | null;
   current_phase?: string | null;
+  current_scene?: string | null;  // Neu: Aktivierte Scene
   last_switch?: string | null;
   frame_count?: number;
   switch_count?: number;
   uptime_s?: number | null;
 }
-
