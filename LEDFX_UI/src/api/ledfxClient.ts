@@ -23,12 +23,9 @@ export async function activateEffect(sceneName: string) {
         'Content-Type': 'application/json'
       }
     });
-    console.log('Scene activation response:', response.data);
     return response.data;
   } catch (error: any) {
-    console.error('Scene activation error:', error);
     console.error('Error response:', error.response?.data);
-    console.error('Error status:', error.response?.status);
     throw error;
   }
 }

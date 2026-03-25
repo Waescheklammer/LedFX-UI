@@ -10,15 +10,19 @@ interface LogEntry {
   phase: string;
 }
 
+interface AutopilotLogSidebarProps {
+  isRunning: boolean;
+}
+
 const MAX_LOGS = 30;
 
-export const AutopilotLogSidebar: React.FC = () => {
+export const AutopilotLogSidebar: React.FC<AutopilotLogSidebarProps> = ({ isRunning }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
 
-  // Polling alle 1 Sekunde für die Phase
+  // Polling alle 1 Sekunde für die Phase – NUR wenn Autopilot läuft
   useEffect(() => {
-    let intervalId: NodeJS.Timeout;
+    if (!isRunning) return;
 
     const fetchPhase = async () => {
       if (document.visibilityState !== 'visible') return;
@@ -34,7 +38,6 @@ export const AutopilotLogSidebar: React.FC = () => {
               phase: status.phase,
             };
             
-            // Füge neuen Log hinzu und behalte maximal MAX_LOGS
             const updatedLogs = [newLog, ...prevLogs].slice(0, MAX_LOGS);
             return updatedLogs;
           });
@@ -44,15 +47,10 @@ export const AutopilotLogSidebar: React.FC = () => {
       }
     };
 
-    // Polling alle 1 Sekunde
-    intervalId = setInterval(fetchPhase, 1000);
+    const intervalId = setInterval(fetchPhase, 1000);
 
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-    };
-  }, []);
+    return () => clearInterval(intervalId);
+  }, [isRunning]);
 
   const toggleSidebar = () => {
     setIsOpen(!isOpen);

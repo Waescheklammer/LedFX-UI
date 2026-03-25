@@ -68,53 +68,48 @@ function App() {
     localStorage.setItem(STORAGE_KEY_PRESETS, JSON.stringify(presets));
   }, [presets]);
 
-  // Autopilot Status Polling (alle 10s, pausiert bei inaktivem Tab)
+  // Einmaliger Status-Check beim App-Start (kein Polling)
   useEffect(() => {
-    let intervalId: NodeJS.Timeout;
+    const initialFetch = async () => {
+      try {
+        const status = await getAutopilotStatus();
+        setAutopilotStatus(status);
+      } catch (error) {
+        console.warn('Initial Autopilot Status Fetch Fehler:', error);
+        setAutopilotStatus({ state: 'service_unavailable' });
+      }
+    };
+
+    // 1 Sekunde warten nach App-Start
+    const timer = setTimeout(initialFetch, 1000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Autopilot Status Polling – NUR wenn Autopilot läuft
+  const isAutopilotRunning = autopilotStatus?.state === 'running';
+  useEffect(() => {
+    if (!isAutopilotRunning) return;
 
     const fetchStatus = async () => {
-      // Nur wenn das Tab/Fenster sichtbar ist
       if (document.visibilityState !== 'visible') return;
 
       try {
         const status = await getAutopilotStatus();
         setAutopilotStatus(status);
       } catch (error) {
-        // Stiller Fehler - nur loggen, kein Toast/Alert für Polling-Fehler
         console.warn('Autopilot Status Polling Fehler (wird ignoriert):', error);
-        
-        // Bei Netzwerkfehlern Status als unavailable setzen
         setAutopilotStatus({ state: 'service_unavailable' });
       }
     };
 
-    // Initial fetch mit Delay für bessere Startup-Performance
-    const initialFetch = () => {
-      setTimeout(() => {
-        fetchStatus().catch(error => {
-          console.warn('Initial Autopilot Status Fetch Fehler:', error);
-          setAutopilotStatus({ state: 'service_unavailable' });
-        });
-      }, 1000); // 1 Sekunde warten nach App-Start
-    };
-
-    initialFetch();
-
-    // Polling alle 10s
-    intervalId = setInterval(() => {
+    const intervalId = setInterval(() => {
       fetchStatus().catch(error => {
-        // Promise rejection explizit behandeln
         console.warn('Autopilot Polling Fehler:', error);
       });
     }, POLLING_INTERVAL_MS);
 
-    // Cleanup
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-    };
-  }, []);
+    return () => clearInterval(intervalId);
+  }, [isAutopilotRunning]);
 
   // Toggle Autopilot
   const handleToggleAutopilot = async () => {
@@ -366,7 +361,7 @@ function App() {
         </Alert>
       </Snackbar>
 
-      <AutopilotLogSidebar />
+      <AutopilotLogSidebar isRunning={isAutopilotRunning} />
     </Box>
   );
 }
