@@ -88,7 +88,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     <AppBar position="static">
       <Toolbar>
         <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-          LedFx Presets
+          Doomvault Lights Dashboard
         </Typography>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
           <Button
