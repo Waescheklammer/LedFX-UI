@@ -1,14 +1,34 @@
-import React from 'react';
-import { AppBar, Toolbar, Typography, Button, Box, Switch, CircularProgress, Chip } from '@mui/material';
+import React, { useState, useRef } from 'react';
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Button,
+  ButtonGroup,
+  Box,
+  Switch,
+  CircularProgress,
+  Chip,
+  Popper,
+  Paper,
+  MenuList,
+  MenuItem,
+  ClickAwayListener,
+  Grow,
+} from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DownloadIcon from '@mui/icons-material/Download';
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import FileUploadIcon from '@mui/icons-material/FileUpload';
 import { AutopilotStatus } from '../types';
 
 interface NavbarProps {
   onAddEffect: () => void;
   onDeleteEffect: () => void;
   onImport: () => void;
+  onUploadPresets: () => void;
+  onExportPresets: () => void;
   autopilotStatus: AutopilotStatus | null;
   autopilotLoading: boolean;
   onToggleAutopilot: () => void;
@@ -18,12 +38,41 @@ export const Navbar: React.FC<NavbarProps> = ({
   onAddEffect,
   onDeleteEffect,
   onImport,
+  onUploadPresets,
+  onExportPresets,
   autopilotStatus,
   autopilotLoading,
   onToggleAutopilot,
 }) => {
+  const [importMenuOpen, setImportMenuOpen] = useState(false);
+  const importAnchorRef = useRef<HTMLDivElement>(null);
+
   const isRunning = autopilotStatus?.state === 'running';
   const isUnavailable = autopilotStatus?.state === 'service_unavailable';
+
+  const handleImportMenuToggle = () => {
+    setImportMenuOpen((prevOpen) => !prevOpen);
+  };
+
+  const handleImportMenuClose = (event: Event | React.SyntheticEvent) => {
+    if (
+      importAnchorRef.current &&
+      importAnchorRef.current.contains(event.target as HTMLElement)
+    ) {
+      return;
+    }
+    setImportMenuOpen(false);
+  };
+
+  const handleLedFxImport = () => {
+    setImportMenuOpen(false);
+    onImport();
+  };
+
+  const handleJsonUpload = () => {
+    setImportMenuOpen(false);
+    onUploadPresets();
+  };
 
   const getStatusText = () => {
     if (isUnavailable) return 'Service nicht verfügbar';
@@ -42,19 +91,73 @@ export const Navbar: React.FC<NavbarProps> = ({
           LedFx Presets
         </Typography>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <Button
+            color="inherit"
+            startIcon={<FileUploadIcon />}
+            onClick={onExportPresets}
+          >
+            Export
+          </Button>
+
+          <ButtonGroup variant="text" ref={importAnchorRef} aria-label="import button group">
             <Button
-                color="inherit"
-                startIcon={<DownloadIcon />}
-                onClick={onImport}
+              color="inherit"
+              startIcon={<DownloadIcon />}
+              onClick={handleLedFxImport}
             >
-                Import
+              Import
             </Button>
             <Button
+              color="inherit"
+              size="small"
+              aria-controls={importMenuOpen ? 'import-menu' : undefined}
+              aria-expanded={importMenuOpen ? 'true' : undefined}
+              aria-haspopup="menu"
+              onClick={handleImportMenuToggle}
+            >
+              <ArrowDropDownIcon />
+            </Button>
+          </ButtonGroup>
+
+          <Popper
+            open={importMenuOpen}
+            anchorEl={importAnchorRef.current}
+            role={undefined}
+            placement="bottom-start"
+            transition
+            disablePortal
+            style={{ zIndex: 1300 }}
+          >
+            {({ TransitionProps, placement }) => (
+              <Grow
+                {...TransitionProps}
+                style={{
+                  transformOrigin:
+                    placement === 'bottom-start' ? 'left top' : 'left bottom',
+                }}
+              >
+                <Paper>
+                  <ClickAwayListener onClickAway={handleImportMenuClose}>
+                    <MenuList id="import-menu" autoFocusItem>
+                      <MenuItem onClick={handleLedFxImport}>
+                        Von LedFX laden
+                      </MenuItem>
+                      <MenuItem onClick={handleJsonUpload}>
+                        JSON hochladen
+                      </MenuItem>
+                    </MenuList>
+                  </ClickAwayListener>
+                </Paper>
+              </Grow>
+            )}
+          </Popper>
+
+          <Button
             color="inherit"
             startIcon={<AddIcon />}
             onClick={onAddEffect}
           >
-              Neuer Effekt
+            Neuer Effekt
           </Button>
           <Button
             color="inherit"

@@ -5,6 +5,7 @@ import { PresetCard } from './components/PresetCard';
 import { AddEffectDialog } from './components/AddEffectDialog';
 import { DeleteEffectDialog } from './components/DeleteEffectDialog';
 import { ImportConfigDialog } from './components/ImportConfigDialog';
+import { UploadPresetsDialog } from './components/UploadPresetsDialog';
 import { AutopilotLogSidebar } from './components/AutopilotLogSidebar';
 import { Preset, SubPreset, AutopilotStatus } from './types';
 import { activateEffect, getAutopilotStatus, startAutopilot, stopAutopilot } from './api/ledfxClient.ts';
@@ -17,6 +18,7 @@ function App() {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [autopilotStatus, setAutopilotStatus] = useState<AutopilotStatus | null>(null);
   const [autopilotLoading, setAutopilotLoading] = useState(false);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' }>({
@@ -75,7 +77,7 @@ function App() {
         const status = await getAutopilotStatus();
         setAutopilotStatus(status);
       } catch (error) {
-        console.warn('Initial Autopilot Status Fetch Fehler:', error);
+        console.warn('nitial Autopilot Status Fetch Fehler:', error);
         setAutopilotStatus({ state: 'service_unavailable' });
       }
     };
@@ -273,6 +275,48 @@ function App() {
     });
   };
 
+  const handleExportPresets = () => {
+    try {
+      const jsonString = JSON.stringify(presets, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      
+      // Zeitstempel für Dateiname generieren
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const filename = `ledfx_presets_${timestamp}.json`;
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      setSnackbar({
+        open: true,
+        message: 'Presets exportiert',
+        severity: 'success',
+      });
+    } catch (error) {
+      console.error('Fehler beim Exportieren:', error);
+      setSnackbar({
+        open: true,
+        message: 'Fehler beim Exportieren der Presets',
+        severity: 'error',
+      });
+    }
+  };
+
+  const handleUploadPresets = (uploadedPresets: Preset[]) => {
+    setPresets(uploadedPresets);
+    setSnackbar({
+      open: true,
+      message: `${uploadedPresets.length} Preset(s) geladen – bestehende Presets wurden ersetzt`,
+      severity: 'success',
+    });
+  };
+
   // Handler für manuelle Effekt-Aktivierung - stoppt Autopilot falls aktiv
   const handleManualEffectActivation = async (effectName: string) => {
     // Stoppt Autopilot falls aktiv
@@ -303,6 +347,8 @@ function App() {
         onAddEffect={() => setAddDialogOpen(true)}
         onDeleteEffect={() => setDeleteDialogOpen(true)}
         onImport={() => setImportDialogOpen(true)}
+        onUploadPresets={() => setUploadDialogOpen(true)}
+        onExportPresets={handleExportPresets}
         autopilotStatus={autopilotStatus}
         autopilotLoading={autopilotLoading}
         onToggleAutopilot={handleToggleAutopilot}
@@ -348,6 +394,12 @@ function App() {
         onClose={() => setImportDialogOpen(false)}
         onImport={handleImportScenes}
         existingPresets={presets}
+      />
+
+      <UploadPresetsDialog
+        open={uploadDialogOpen}
+        onClose={() => setUploadDialogOpen(false)}
+        onUpload={handleUploadPresets}
       />
 
       <Snackbar
